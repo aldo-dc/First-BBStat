@@ -1,0 +1,98 @@
+---
+title: "Aaron BB Stat"
+author: "Aldo Diaz Caballero"
+date: "10/4/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+## Libraries
+library(dplyr)
+library(retrosheet)
+library(ggplot2)
+```
+
+### Goal
+
+The objective of this experiment is if Aaron's new stat BBPA has has more predictive power than other traditional stats such as OPS or avg when talking about fantasy points. We will be limiting our analysis Retrosheet play-by-play data base and the modern baseball era. Modern baseball era will be defined to be after and including 2000.
+
+BBPA is defined as:
+
+$$
+BBPA = \frac{H + 2*2B + 3*3B + 4*HR + BB + IBB + HBP}{PA}
+$$
+
+##### Limitations 
+TBD
+
+
+* GWRBI (Game Winning RBI)
+* CYC (Hits for the cycle)
+* GSHR (Grand Slam HR)
+
+## Extracting play by play data
+
+```{r}
+modern.yrs <- 2000:2020
+## extracting process
+# 1) take pbp of 2000 and the first team in the teamID list
+# 2) Load 2000 pbp of the next team in the teamID list
+# 3) Continue until teamID until the last team ID
+# 4) Repeat the process for the next year. Stop when 2020 is done
+
+```
+## Working with lists
+```{r Figuring list out}
+marlins.pbp2020 <- get_retrosheet("play", 2020,"MIA")
+a <- tibble(unlist(marlins.2020[[1]]))
+
+```
+
+
+
+
+### Data Prepping
+```{r Prepping data}
+##  Filter to only include post 2000 baseball 
+##  Calculating plate appearances
+modern.era <- Batting %>%
+  filter(yearID <=2019 & yearID >= 2000) %>%
+  mutate(PA = AB + BB + IBB + HBP + SH + SF)
+
+## Adding stats for players who were in multiple team in a single season
+## Creating new column with Aaron's stat
+modern.era <- modern.era %>% 
+  group_by(playerID,yearID) %>%
+  summarise_at(vars(G:PA),sum) %>%
+  mutate(BBPA = (H + 2*X2B + 3*X3B + 4*HR + BB + IBB + HBP)/PA)
+
+## Filter out pitchers and players that were defensive subs by requiring them to have at least 100 PA
+modern.era <- modern.era %>%
+  filter(PA >= 100)
+
+## Calculating the fantasy score
+modern.era <- modern.era %>%
+  mutate(Fanta.points = H + 2*X2B + 3*X3B + 4*HR + BB + R + RBI + SB - SO + SF + SH - CS - 2*GIDP)
+```
+
+
+### Initial Analysis
+
+To start of we are running a linear regression across all modern era season.
+```{r Initial analysis}
+## Plotting the data points for all modern era years
+plot1 <- ggplot(modern.era,aes(BBPA,Fanta.points))
+
+plot1 + geom_point() + geom_smooth(method = lm)
+
+lm.model <- lm(Fanta.points ~ BBPA, data = modern.era)
+summary(lm.model)
+```
+
+## Next steps
+
+- Do a regression per each year to see if R^2 score holds
+- Incorporate fielding error
+
